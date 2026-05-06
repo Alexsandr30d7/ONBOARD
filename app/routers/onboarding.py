@@ -8,7 +8,7 @@ from app.database import get_db
 from app.dependencies import get_current_user, require_role
 
 
-router = APIRouter(prefix="/onboarding", tags=["Onboarding"])
+router = APIRouter(tags=["Onboarding"])
 
 
 # === 1. Назначение адаптации (HR) ===

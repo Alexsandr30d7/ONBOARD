@@ -62,3 +62,20 @@ export interface EmployeeOnboardingTask {
   notes: string | null;
   attachment_url: string | null;
 }
+
+export interface OnboardingRiskFactors {
+  overdue_ratio: number;
+  pace_drop: number;
+  inactivity_days: number;
+  negative_feedback: boolean;
+}
+
+export interface OnboardingRisk {
+  onboarding_id: number;
+  employee_id: number;
+  employee_name: string;
+  track_name: string;
+  risk_score: number;
+  risk_level: "low" | "medium" | "high";
+  factors: OnboardingRiskFactors;
+}

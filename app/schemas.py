@@ -152,3 +152,26 @@ class Token(BaseModel):
 class TokenData(BaseModel):
     user_id: Optional[int] = None
     role: Optional[str] = None
+
+
+class OnboardingRiskFactors(BaseModel):
+    overdue_ratio: int
+    pace_drop: int
+    inactivity_days: int
+    negative_feedback: bool
+
+
+class OnboardingRisk(BaseModel):
+    onboarding_id: int
+    employee_id: int
+    employee_name: str
+    track_name: str
+    risk_score: int = Field(..., ge=0, le=100)
+    risk_level: str = Field(..., pattern="^(low|medium|high)$")
+    factors: OnboardingRiskFactors
+
+
+class OnboardingRiskActionResponse(BaseModel):
+    onboarding_id: int
+    action_type: str = Field(..., pattern="^(plan_1on1|send_nudge)$")
+    message: str
