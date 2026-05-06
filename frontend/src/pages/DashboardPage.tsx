@@ -1,0 +1,58 @@
+import { useNavigate } from "react-router-dom";
+import { logout } from "../api/client";
+import type { User } from "../types";
+import AdminView from "../views/AdminView";
+import HrView from "../views/HrView";
+import EmployeeView from "../views/EmployeeView";
+
+export default function DashboardPage({
+  user,
+  onUserChange,
+}: {
+  user: User;
+  onUserChange: (u: User | null) => void;
+}) {
+  const nav = useNavigate();
+
+  async function handleLogout() {
+    await logout();
+    onUserChange(null);
+    nav("/login", { replace: true });
+  }
+
+  const roleLabel: Record<string, string> = {
+    admin: "Администратор",
+    hr: "HR",
+    new_employee: "Новый сотрудник",
+    mentor: "Ментор",
+  };
+
+  return (
+    <div className="layout">
+      <header className="topbar">
+        <div>
+          <div className="brand">Онбординг — демо</div>
+          <div className="muted" style={{ fontSize: "0.9rem" }}>
+            {user.email}
+          </div>
+        </div>
+        <div style={{ display: "flex", alignItems: "center", gap: "0.75rem", flexWrap: "wrap" }}>
+          <span className="pill">{roleLabel[user.role] ?? user.role}</span>
+          <button type="button" className="btn btn-ghost" onClick={handleLogout}>
+            Выйти
+          </button>
+        </div>
+      </header>
+
+      {user.role === "admin" ? <AdminView currentUserId={user.user_id} /> : null}
+      {user.role === "hr" ? <HrView /> : null}
+      {user.role === "new_employee" ? <EmployeeView /> : null}
+      {user.role === "mentor" ? (
+        <div className="card">
+          <h2>Ментор</h2>
+          <p className="muted">Отдельный кабинет ментора в API пока не вынесен; используйте админку или документацию.</p>
+        </div>
+      ) : null}
+    </div>
+  );
+}

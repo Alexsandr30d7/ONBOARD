@@ -48,7 +48,7 @@ app.include_router(hr.router, prefix=f"{api_prefix}")
 
 @app.get("/", tags=["Root"])
 async def read_root():
-    return {"message": "Welcome to the Hotel Booking API. Visit /api/v1/docs for documentation."}
+    return {"message": "Onboarding API. Документация: /api/v1/docs. UI: http://localhost:5173 (npm run dev в папке frontend)."}
 
 if __name__ == "__main__":
     import uvicorn

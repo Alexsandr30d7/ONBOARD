@@ -51,3 +51,11 @@ async def list_employees(
     # Получаем всех сотрудников (можно добавить фильтрацию позже)
     result = await db.execute(select(models.Employee))
     return result.scalars().all()
+
+
+@router.get("/tracks", response_model=List[schemas.OnboardingTrack])
+async def list_active_tracks_for_hr(
+    db: AsyncSession = Depends(get_db),
+    current_user = Depends(require_role("hr")),
+):
+    return await crud.get_active_tracks(db)

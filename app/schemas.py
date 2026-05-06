@@ -121,10 +121,28 @@ class TaskCompletionCreate(TaskCompletionBase):
 
 class TaskCompletion(TaskCompletionBase):
     completion_id: int
+    task_id: int
     completed_date: Optional[date] = None
 
     class Config:
         from_attributes = True
+
+
+class EmployeeOnboardingTask(BaseModel):
+    """Задача трека с прогрессом — удобно для UI нового сотрудника."""
+
+    task_id: int
+    title: str
+    description: Optional[str] = None
+    task_type: str
+    task_order: int
+    expected_duration_days: int = 3
+    completion_id: Optional[int] = None
+    status: str
+    due_date: date
+    completed_date: Optional[date] = None
+    notes: Optional[str] = None
+    attachment_url: Optional[str] = None
 
 # --- Auth ---
 class Token(BaseModel):

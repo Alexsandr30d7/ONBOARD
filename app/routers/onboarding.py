@@ -1,9 +1,9 @@
-from fastapi import APIRouter, Depends, HTTPException, status, Query
+from fastapi import APIRouter, Body, Depends, HTTPException, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from typing import List, Optional
 from datetime import date, timedelta
 
-from app import schemas, crud, models
+from app import schemas, crud
 from app.database import get_db
 from app.dependencies import get_current_user, require_role
 
@@ -75,7 +75,7 @@ async def get_my_onboarding(
 # === 3. Получить все задачи в моей адаптации ===
 @router.get(
     "/my/tasks",
-    response_model=List[schemas.TaskCompletion],
+    response_model=List[schemas.EmployeeOnboardingTask],
     summary=""
 )
 async def get_my_onboarding_tasks(
@@ -93,24 +93,42 @@ async def get_my_onboarding_tasks(
     if not onboarding:
         raise HTTPException(status_code=404, detail="Адаптация не найдена")
 
-    # Получаем все задачи трека + статус выполнения
     tasks = await crud.get_tasks_by_track(db, onboarding.track_id)
-    completions = []
+    items: list[schemas.EmployeeOnboardingTask] = []
     for task in tasks:
         comp = await crud.get_completion_by_onboarding_and_task(db, onboarding.onboarding_id, task.task_id)
         if comp:
-            completions.append(comp)
-        else:
-            # Создаём "заглушку" для невыполненных задач
-            completions.append(
-                models.TaskCompletion(
-                    onboarding_id=onboarding.onboarding_id,
+            items.append(
+                schemas.EmployeeOnboardingTask(
                     task_id=task.task_id,
-                    status="pending",
-                    due_date=onboarding.start_date + timedelta(days=task.expected_duration_days)
+                    title=task.title,
+                    description=task.description,
+                    task_type=task.task_type,
+                    task_order=task.task_order,
+                    expected_duration_days=task.expected_duration_days,
+                    completion_id=comp.completion_id,
+                    status=comp.status,
+                    due_date=comp.due_date,
+                    completed_date=comp.completed_date,
+                    notes=comp.notes,
+                    attachment_url=comp.attachment_url,
                 )
             )
-    return completions
+        else:
+            items.append(
+                schemas.EmployeeOnboardingTask(
+                    task_id=task.task_id,
+                    title=task.title,
+                    description=task.description,
+                    task_type=task.task_type,
+                    task_order=task.task_order,
+                    expected_duration_days=task.expected_duration_days,
+                    completion_id=None,
+                    status="pending",
+                    due_date=onboarding.start_date + timedelta(days=task.expected_duration_days),
+                )
+            )
+    return items
 
 
 # === 4. Завершить задачу ===
@@ -169,8 +187,8 @@ async def complete_task(
     summary=""
 )
 async def submit_feedback(
-    survey_type: str = Query(..., regex="^(7_days|30_days|90_days)$"),
-    responses: dict = ...,  # FastAPI автоматически парсит JSON тело
+    survey_type: str = Query(..., pattern="^(7_days|30_days|90_days)$"),
+    responses: dict = Body(...),
     db: AsyncSession = Depends(get_db),
     current_user = Depends(get_current_user)
 ):

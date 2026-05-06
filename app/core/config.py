@@ -10,7 +10,15 @@ class Settings(BaseSettings):
     SECRET_KEY: str = Field(..., env="SECRET_KEY")
     ALGORITHM: str = Field("HS256", env="ALGORITHM")
     ACCESS_TOKEN_EXPIRE_MINUTES: int = Field(30, env="ACCESS_TOKEN_EXPIRE_MINUTES")
-    CORS_ORIGINS: List[str] = Field(default_factory=lambda: ["http://localhost:3000"], env="CORS_ORIGINS")
+    CORS_ORIGINS: List[str] = Field(
+        default_factory=lambda: [
+            "http://localhost:3000",
+            "http://127.0.0.1:3000",
+            "http://localhost:5173",
+            "http://127.0.0.1:5173",
+        ],
+        env="CORS_ORIGINS",
+    )
     COOKIE_SECURE: bool = Field(False, env="COOKIE_SECURE")
     COOKIE_SAMESITE: str = Field("lax", env="COOKIE_SAMESITE")
 
