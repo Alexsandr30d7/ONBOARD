@@ -99,6 +99,7 @@ class EmployeeCreateForOnboarding(BaseModel):
 class EmployeeOnboardingCreate(EmployeeOnboardingBase):
     employee_id: int
     track_id: int
+    expected_end_date: Optional[date] = None
 
 class EmployeeOnboarding(EmployeeOnboardingBase):
     onboarding_id: int
