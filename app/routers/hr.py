@@ -62,6 +62,29 @@ async def list_active_tracks_for_hr(
     return await crud.get_active_tracks(db)
 
 
+@router.post("/tracks", response_model=schemas.OnboardingTrack, status_code=status.HTTP_201_CREATED)
+async def create_onboarding_track_for_hr(
+    track: schemas.OnboardingTrackCreate,
+    db: AsyncSession = Depends(get_db),
+    current_user = Depends(require_role("hr")),
+):
+    return await crud.create_track(db, track, created_by=current_user.user_id)
+
+
+@router.post("/tracks/{track_id}/tasks", response_model=schemas.Task, status_code=status.HTTP_201_CREATED)
+async def add_task_to_track_for_hr(
+    track_id: int,
+    task: schemas.TaskCreate,
+    db: AsyncSession = Depends(get_db),
+    current_user = Depends(require_role("hr")),
+):
+    track = await crud.get_track_by_id(db, track_id)
+    if not track:
+        raise HTTPException(status_code=404, detail="Трек не найден")
+
+    return await crud.create_task(db, task, track_id=track_id)
+
+
 def _risk_level(score: int) -> str:
     if score >= 70:
         return "high"

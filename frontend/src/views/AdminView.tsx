@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { apiJson } from "../api/client";
-import type { EmployeeOnboarding, OnboardingTrack, Task, User } from "../types";
+import type { EmployeeOnboarding, OnboardingTrack, User } from "../types";
 
 export default function AdminView({ currentUserId }: { currentUserId: number }) {
   const [users, setUsers] = useState<User[]>([]);
@@ -13,18 +13,6 @@ export default function AdminView({ currentUserId }: { currentUserId: number }) 
   const [hrPassword, setHrPassword] = useState("");
   const [mentorEmail, setMentorEmail] = useState("");
   const [mentorPassword, setMentorPassword] = useState("");
-
-  const [trackName, setTrackName] = useState("");
-  const [trackDesc, setTrackDesc] = useState("");
-  const [trackPosition, setTrackPosition] = useState("");
-  const [trackDays, setTrackDays] = useState(30);
-
-  const [taskTrackId, setTaskTrackId] = useState<number | "">("");
-  const [taskTitle, setTaskTitle] = useState("");
-  const [taskDesc, setTaskDesc] = useState("");
-  const [taskType, setTaskType] = useState("document");
-  const [taskOrder, setTaskOrder] = useState(1);
-  const [taskDur, setTaskDur] = useState(3);
 
   const refresh = useCallback(async () => {
     setError(null);
@@ -45,10 +33,6 @@ export default function AdminView({ currentUserId }: { currentUserId: number }) 
   useEffect(() => {
     void refresh();
   }, [refresh]);
-
-  useEffect(() => {
-    if (tracks.length > 0 && taskTrackId === "") setTaskTrackId(tracks[0].track_id);
-  }, [tracks, taskTrackId]);
 
   async function createHr(e: React.FormEvent) {
     e.preventDefault();
@@ -78,55 +62,6 @@ export default function AdminView({ currentUserId }: { currentUserId: number }) 
       setOk("Ментор создан");
       setMentorEmail("");
       setMentorPassword("");
-      await refresh();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Ошибка");
-    }
-  }
-
-  async function createTrack(e: React.FormEvent) {
-    e.preventDefault();
-    setOk(null);
-    try {
-      await apiJson<OnboardingTrack>("/admin/tracks", {
-        method: "POST",
-        body: JSON.stringify({
-          name: trackName,
-          description: trackDesc || null,
-          target_position: trackPosition,
-          duration_days: trackDays,
-          is_active: true,
-        }),
-      });
-      setOk("Трек создан");
-      setTrackName("");
-      setTrackDesc("");
-      setTrackPosition("");
-      await refresh();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Ошибка");
-    }
-  }
-
-  async function addTask(e: React.FormEvent) {
-    e.preventDefault();
-    if (taskTrackId === "") return;
-    setOk(null);
-    try {
-      await apiJson<Task>(`/admin/tracks/${taskTrackId}/tasks`, {
-        method: "POST",
-        body: JSON.stringify({
-          title: taskTitle,
-          description: taskDesc || null,
-          task_type: taskType,
-          expected_duration_days: taskDur,
-          task_order: taskOrder,
-          is_mandatory: true,
-        }),
-      });
-      setOk("Задача добавлена");
-      setTaskTitle("");
-      setTaskDesc("");
       await refresh();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Ошибка");
@@ -195,76 +130,6 @@ export default function AdminView({ currentUserId }: { currentUserId: number }) 
             </div>
             <button type="submit" className="btn btn-primary">
               Создать
-            </button>
-          </form>
-        </div>
-      </div>
-
-      <div className="grid grid-2">
-        <div className="card">
-          <h2>Новый трек адаптации</h2>
-          <form onSubmit={createTrack}>
-            <div className="form-row">
-              <label>Название</label>
-              <input value={trackName} onChange={(e) => setTrackName(e.target.value)} required />
-            </div>
-            <div className="form-row">
-              <label>Описание</label>
-              <textarea value={trackDesc} onChange={(e) => setTrackDesc(e.target.value)} rows={2} />
-            </div>
-            <div className="form-row">
-              <label>Целевая должность</label>
-              <input value={trackPosition} onChange={(e) => setTrackPosition(e.target.value)} required />
-            </div>
-            <div className="form-row">
-              <label>Длительность (дней)</label>
-              <input type="number" min={1} value={trackDays} onChange={(e) => setTrackDays(Number(e.target.value))} />
-            </div>
-            <button type="submit" className="btn btn-primary">
-              Создать трек
-            </button>
-          </form>
-        </div>
-        <div className="card">
-          <h2>Задача в треке</h2>
-          <form onSubmit={addTask}>
-            <div className="form-row">
-              <label>Трек</label>
-              <select value={taskTrackId === "" ? "" : String(taskTrackId)} onChange={(e) => setTaskTrackId(Number(e.target.value))}>
-                {tracks.map((t) => (
-                  <option key={t.track_id} value={t.track_id}>
-                    #{t.track_id} — {t.name}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div className="form-row">
-              <label>Название задачи</label>
-              <input value={taskTitle} onChange={(e) => setTaskTitle(e.target.value)} required />
-            </div>
-            <div className="form-row">
-              <label>Описание</label>
-              <textarea value={taskDesc} onChange={(e) => setTaskDesc(e.target.value)} rows={2} />
-            </div>
-            <div className="form-row">
-              <label>Тип</label>
-              <select value={taskType} onChange={(e) => setTaskType(e.target.value)}>
-                <option value="document">document</option>
-                <option value="meeting">meeting</option>
-                <option value="training">training</option>
-                <option value="system">system</option>
-              </select>
-            </div>
-            <div className="form-row">
-              <label>Порядок</label>
-              <input type="number" min={1} value={taskOrder} onChange={(e) => setTaskOrder(Number(e.target.value))} />
-            </div>
-            <div className="form-row">
-              <label>Ожидаемая длительность (дней)</label>
-              <input type="number" min={1} value={taskDur} onChange={(e) => setTaskDur(Number(e.target.value))} />
-            </div>
-            <button type="submit" className="btn btn-primary" disabled={!tracks.length}>
-              Добавить задачу
             </button>
           </form>
         </div>
