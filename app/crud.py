@@ -27,6 +27,26 @@ async def create_user(db: AsyncSession, user: schemas.UserCreate) -> models.User
     await db.refresh(db_user)
     return db_user
 
+
+async def get_user_by_id(db: AsyncSession, user_id: int) -> Optional[models.User]:
+    result = await db.execute(select(models.User).where(models.User.user_id == user_id))
+    return result.scalars().first()
+
+
+async def update_user(
+    db: AsyncSession,
+    user: models.User,
+    payload: schemas.UserUpdate,
+) -> models.User:
+    user.email = payload.email
+    user.role = payload.role
+    user.is_active = payload.is_active
+    if payload.password:
+        user.password_hash = get_password_hash(payload.password)
+    await db.commit()
+    await db.refresh(user)
+    return user
+
 async def toggle_user_active_status(
     db: AsyncSession, 
     user_id: int, 

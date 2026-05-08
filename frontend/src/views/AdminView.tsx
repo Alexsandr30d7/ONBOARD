@@ -1,6 +1,6 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { apiJson } from "../api/client";
-import type { EmployeeOnboarding, OnboardingTrack, User } from "../types";
+import type { EmployeeOnboarding, OnboardingTrack, Role, User, UserUpdatePayload } from "../types";
 
 export default function AdminView({ currentUserId }: { currentUserId: number }) {
   const [users, setUsers] = useState<User[]>([]);
@@ -13,6 +13,11 @@ export default function AdminView({ currentUserId }: { currentUserId: number }) 
   const [hrPassword, setHrPassword] = useState("");
   const [mentorEmail, setMentorEmail] = useState("");
   const [mentorPassword, setMentorPassword] = useState("");
+  const [editingUserId, setEditingUserId] = useState<number | null>(null);
+  const [editEmail, setEditEmail] = useState("");
+  const [editRole, setEditRole] = useState<Role>("hr");
+  const [editActive, setEditActive] = useState(true);
+  const [editPassword, setEditPassword] = useState("");
 
   const refresh = useCallback(async () => {
     setError(null);
@@ -81,6 +86,68 @@ export default function AdminView({ currentUserId }: { currentUserId: number }) 
     }
   }
 
+  function openEditUserForm(u: User) {
+    setEditingUserId(u.user_id);
+    setEditEmail(u.email);
+    setEditRole(u.role);
+    setEditActive(u.is_active);
+    setEditPassword("");
+    setError(null);
+    setOk(null);
+  }
+
+  function cancelEditUserForm() {
+    setEditingUserId(null);
+    setEditPassword("");
+  }
+
+  async function saveUserChanges(userId: number) {
+    setOk(null);
+    try {
+      const payload: UserUpdatePayload = {
+        email: editEmail,
+        role: editRole,
+        is_active: editActive,
+      };
+      if (editPassword.trim()) payload.password = editPassword;
+
+      await apiJson<User>(`/admin/users/${userId}`, {
+        method: "PUT",
+        body: JSON.stringify(payload),
+      });
+      setOk("Данные пользователя обновлены");
+      setEditingUserId(null);
+      setEditPassword("");
+      await refresh();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Ошибка");
+    }
+  }
+
+  const editingUser = useMemo(
+    () => users.find((u) => u.user_id === editingUserId) ?? null,
+    [users, editingUserId]
+  );
+
+  useEffect(() => {
+    if (!editingUser) return;
+
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        cancelEditUserForm();
+      }
+    };
+
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    window.addEventListener("keydown", onKeyDown);
+
+    return () => {
+      window.removeEventListener("keydown", onKeyDown);
+      document.body.style.overflow = previousOverflow;
+    };
+  }, [editingUser]);
+
   return (
     <div className="grid">
       {error ? (
@@ -145,7 +212,7 @@ export default function AdminView({ currentUserId }: { currentUserId: number }) 
                 <th>Email</th>
                 <th>Роль</th>
                 <th>Активен</th>
-                <th />
+                <th>Действия</th>
               </tr>
             </thead>
             <tbody>
@@ -155,7 +222,11 @@ export default function AdminView({ currentUserId }: { currentUserId: number }) 
                   <td>{u.email}</td>
                   <td>{u.role}</td>
                   <td>{u.is_active ? "да" : "нет"}</td>
-                  <td>
+                  <td style={{ whiteSpace: "nowrap" }}>
+                    <button type="button" className="btn btn-ghost btn-small" onClick={() => openEditUserForm(u)}>
+                      Редактировать
+                    </button>
+                    {" "}
                     {u.role !== "admin" && u.user_id !== currentUserId ? (
                       u.is_active ? (
                         <button type="button" className="btn btn-danger btn-small" onClick={() => void toggleUser(u, false)}>
@@ -166,9 +237,7 @@ export default function AdminView({ currentUserId }: { currentUserId: number }) 
                           Активировать
                         </button>
                       )
-                    ) : (
-                      <span className="muted">—</span>
-                    )}
+                    ) : null}
                   </td>
                 </tr>
               ))}
@@ -176,6 +245,52 @@ export default function AdminView({ currentUserId }: { currentUserId: number }) 
           </table>
         </div>
       </div>
+
+      {editingUser ? (
+        <div className="modal-backdrop" role="presentation" onClick={cancelEditUserForm}>
+          <div className="modal-card" role="dialog" aria-modal="true" onClick={(e) => e.stopPropagation()}>
+            <h3 style={{ marginTop: 0, marginBottom: "0.8rem" }}>Редактирование пользователя #{editingUser.user_id}</h3>
+            <div className="grid grid-2">
+              <div className="form-row">
+                <label>Email</label>
+                <input type="email" value={editEmail} onChange={(e) => setEditEmail(e.target.value)} />
+              </div>
+              <div className="form-row">
+                <label>Роль</label>
+                <select value={editRole} onChange={(e) => setEditRole(e.target.value as Role)}>
+                  <option value="admin">admin</option>
+                  <option value="hr">hr</option>
+                  <option value="mentor">mentor</option>
+                  <option value="new_employee">new_employee</option>
+                </select>
+              </div>
+              <div className="form-row">
+                <label>Новый пароль (необязательно)</label>
+                <input
+                  type="password"
+                  value={editPassword}
+                  onChange={(e) => setEditPassword(e.target.value)}
+                  placeholder="Оставьте пустым, чтобы не менять"
+                />
+              </div>
+              <div className="form-row">
+                <label style={{ display: "inline-flex", alignItems: "center", gap: "0.5rem", marginTop: "1.8rem" }}>
+                  <input type="checkbox" checked={editActive} onChange={(e) => setEditActive(e.target.checked)} />
+                  <span>Активен</span>
+                </label>
+              </div>
+            </div>
+            <div className="form-actions">
+              <button type="button" className="btn btn-primary btn-small" onClick={() => void saveUserChanges(editingUser.user_id)}>
+                Сохранить
+              </button>
+              <button type="button" className="btn btn-ghost btn-small" onClick={cancelEditUserForm}>
+                Отмена
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
 
       <div className="grid grid-2">
         <div className="card">

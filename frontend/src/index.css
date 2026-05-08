@@ -262,3 +262,25 @@ th {
 .badge.pending {
   background: color-mix(in srgb, var(--warn) 22%, var(--surface2));
 }
+
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: #00000066;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+  z-index: 2000;
+}
+
+.modal-card {
+  width: min(720px, 100%);
+  max-height: 90vh;
+  overflow: auto;
+  background: var(--surface);
+  border-radius: var(--radius);
+  border: 1px solid color-mix(in srgb, var(--muted) 22%, transparent);
+  box-shadow: 0 16px 48px #00000040;
+  padding: 1rem 1.2rem;
+}

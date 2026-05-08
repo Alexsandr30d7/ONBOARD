@@ -64,6 +64,33 @@ async def list_all_users(
     result = await db.execute(select(models.User))
     return result.scalars().all()
 
+
+@router.put("/users/{user_id}", response_model=schemas.User)
+async def edit_user(
+    user_id: int,
+    payload: schemas.UserUpdate,
+    db: AsyncSession = Depends(get_db),
+    current_user = Depends(require_role("admin"))
+):
+    user = await crud.get_user_by_id(db, user_id)
+    if not user:
+        raise HTTPException(status_code=404, detail="Пользователь не найден")
+
+    existing = await crud.get_user_by_email(db, payload.email)
+    if existing and existing.user_id != user_id:
+        raise HTTPException(status_code=400, detail="Пользователь с таким email уже существует")
+
+    if payload.role == "admin" and user.user_id != current_user.user_id:
+        raise HTTPException(status_code=403, detail="Нельзя повышать другого пользователя до администратора")
+
+    if user.user_id == current_user.user_id and not payload.is_active:
+        raise HTTPException(status_code=400, detail="Нельзя деактивировать самого себя")
+
+    if user.role == "admin" and user.user_id != current_user.user_id:
+        raise HTTPException(status_code=403, detail="Нельзя изменять других администраторов")
+
+    return await crud.update_user(db, user, payload)
+
 # Деактивация пользователя
 @router.put("/users/{user_id}/deactivate", response_model=schemas.User)
 async def deactivate_user(

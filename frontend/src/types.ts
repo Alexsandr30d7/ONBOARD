@@ -8,6 +8,13 @@ export interface User {
   created_at: string;
 }
 
+export interface UserUpdatePayload {
+  email: string;
+  role: Role;
+  is_active: boolean;
+  password?: string;
+}
+
 export interface Employee {
   employee_id: number;
   first_name: string;
