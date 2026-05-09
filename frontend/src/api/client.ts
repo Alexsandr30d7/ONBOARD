@@ -78,3 +78,24 @@ export async function apiPost(path: string, params?: Record<string, string | und
     throw new Error(msg);
   }
 }
+
+export async function apiForm<T>(path: string, formData: FormData, init?: Omit<RequestInit, "body" | "headers">): Promise<T> {
+  const res = await fetch(`${API_PREFIX}${path}`, {
+    ...init,
+    method: init?.method ?? "POST",
+    credentials: "include",
+    body: formData,
+  });
+  if (!res.ok) {
+    let msg = res.statusText;
+    try {
+      const j = (await res.json()) as { detail?: unknown };
+      if (j.detail !== undefined) msg = formatErrorDetail(j.detail);
+    } catch {
+      /* ignore */
+    }
+    throw new Error(msg);
+  }
+  if (res.status === 204) return undefined as T;
+  return res.json() as Promise<T>;
+}

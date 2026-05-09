@@ -182,3 +182,17 @@ class OnboardingRiskActionResponse(BaseModel):
     onboarding_id: int
     action_type: str = Field(..., pattern="^(plan_1on1|send_nudge)$")
     message: str
+
+
+class KnowledgeBaseItem(BaseModel):
+    item_id: int
+    title: str
+    content: Optional[str] = None
+    file_name: Optional[str] = None
+    file_url: Optional[str] = None
+    file_mime_type: Optional[str] = None
+    created_by: int
+    created_at: datetime
+
+    class Config:
+        from_attributes = True

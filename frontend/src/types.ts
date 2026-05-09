@@ -86,3 +86,14 @@ export interface OnboardingRisk {
   risk_level: "low" | "medium" | "high";
   factors: OnboardingRiskFactors;
 }
+
+export interface KnowledgeBaseItem {
+  item_id: number;
+  title: string;
+  content: string | null;
+  file_name: string | null;
+  file_url: string | null;
+  file_mime_type: string | null;
+  created_by: number;
+  created_at: string;
+}

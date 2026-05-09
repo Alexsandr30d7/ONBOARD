@@ -245,3 +245,43 @@ async def create_feedback(
     await db.commit()
     await db.refresh(db_fb)
     return db_fb
+
+
+# === Knowledge Base ===
+async def list_knowledge_base_items(db: AsyncSession) -> List[models.KnowledgeBaseItem]:
+    result = await db.execute(
+        select(models.KnowledgeBaseItem).order_by(models.KnowledgeBaseItem.created_at.desc())
+    )
+    return result.scalars().all()
+
+
+async def get_knowledge_base_item_by_id(
+    db: AsyncSession, item_id: int
+) -> Optional[models.KnowledgeBaseItem]:
+    result = await db.execute(
+        select(models.KnowledgeBaseItem).where(models.KnowledgeBaseItem.item_id == item_id)
+    )
+    return result.scalars().first()
+
+
+async def create_knowledge_base_item(
+    db: AsyncSession,
+    title: str,
+    content: Optional[str],
+    created_by: int,
+    file_name: Optional[str] = None,
+    file_path: Optional[str] = None,
+    file_mime_type: Optional[str] = None,
+) -> models.KnowledgeBaseItem:
+    db_item = models.KnowledgeBaseItem(
+        title=title,
+        content=content,
+        created_by=created_by,
+        file_name=file_name,
+        file_path=file_path,
+        file_mime_type=file_mime_type,
+    )
+    db.add(db_item)
+    await db.commit()
+    await db.refresh(db_item)
+    return db_item

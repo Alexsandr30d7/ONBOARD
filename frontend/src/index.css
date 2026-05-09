@@ -176,6 +176,12 @@ button {
   color: var(--text);
 }
 
+.menu-active {
+  background: color-mix(in srgb, var(--accent) 20%, transparent);
+  border-color: color-mix(in srgb, var(--accent) 55%, transparent);
+  color: var(--text);
+}
+
 .btn-danger {
   background: var(--danger);
   color: #fff;
@@ -283,4 +289,43 @@ th {
   border: 1px solid color-mix(in srgb, var(--muted) 22%, transparent);
   box-shadow: 0 16px 48px #00000040;
   padding: 1rem 1.2rem;
+}
+
+.kb-layout {
+  display: grid;
+  gap: 1rem;
+}
+
+@media (min-width: 920px) {
+  .kb-layout {
+    grid-template-columns: 320px 1fr;
+    align-items: start;
+  }
+}
+
+.kb-sidebar {
+  position: sticky;
+  top: 0.75rem;
+}
+
+.kb-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  max-height: 60vh;
+  overflow: auto;
+}
+
+.kb-item {
+  text-align: left;
+  border: 1px solid color-mix(in srgb, var(--muted) 35%, transparent);
+  background: var(--bg);
+  color: var(--text);
+  border-radius: 8px;
+  padding: 0.5rem 0.6rem;
+}
+
+.kb-item.active {
+  border-color: color-mix(in srgb, var(--accent) 50%, transparent);
+  background: color-mix(in srgb, var(--accent) 22%, transparent);
 }

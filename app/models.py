@@ -118,3 +118,18 @@ class Feedback(Base):
         CheckConstraint("survey_type IN ('7_days', '30_days', '90_days')", name="chk_survey_type"),
         CheckConstraint("anonymity_level IN ('full', 'partial', 'none')", name="chk_anonymity"),
     )
+
+
+class KnowledgeBaseItem(Base):
+    __tablename__ = "knowledge_base_items"
+
+    item_id = Column(Integer, primary_key=True, index=True)
+    title = Column(String(255), nullable=False, index=True)
+    content = Column(Text, nullable=True)
+    file_name = Column(String(255), nullable=True)
+    file_path = Column(String(500), nullable=True)
+    file_mime_type = Column(String(100), nullable=True)
+    created_by = Column(Integer, ForeignKey("users.user_id"), nullable=False)
+    created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+
+    creator = relationship("User")
