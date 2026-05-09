@@ -329,3 +329,11 @@ th {
   border-color: color-mix(in srgb, var(--accent) 50%, transparent);
   background: color-mix(in srgb, var(--accent) 22%, transparent);
 }
+
+.kb-image-preview {
+  max-width: 100%;
+  max-height: 420px;
+  border-radius: 10px;
+  border: 1px solid color-mix(in srgb, var(--muted) 22%, transparent);
+  object-fit: contain;
+}

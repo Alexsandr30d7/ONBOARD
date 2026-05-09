@@ -248,10 +248,14 @@ async def create_feedback(
 
 
 # === Knowledge Base ===
-async def list_knowledge_base_items(db: AsyncSession) -> List[models.KnowledgeBaseItem]:
-    result = await db.execute(
-        select(models.KnowledgeBaseItem).order_by(models.KnowledgeBaseItem.created_at.desc())
-    )
+async def list_knowledge_base_items(
+    db: AsyncSession, query: Optional[str] = None
+) -> List[models.KnowledgeBaseItem]:
+    stmt = select(models.KnowledgeBaseItem)
+    if query:
+        stmt = stmt.where(models.KnowledgeBaseItem.title.ilike(f"%{query}%"))
+    stmt = stmt.order_by(models.KnowledgeBaseItem.created_at.desc())
+    result = await db.execute(stmt)
     return result.scalars().all()
 
 
@@ -285,3 +289,27 @@ async def create_knowledge_base_item(
     await db.commit()
     await db.refresh(db_item)
     return db_item
+
+
+async def update_knowledge_base_item(
+    db: AsyncSession,
+    item: models.KnowledgeBaseItem,
+    title: str,
+    content: Optional[str],
+    file_name: Optional[str],
+    file_path: Optional[str],
+    file_mime_type: Optional[str],
+) -> models.KnowledgeBaseItem:
+    item.title = title
+    item.content = content
+    item.file_name = file_name
+    item.file_path = file_path
+    item.file_mime_type = file_mime_type
+    await db.commit()
+    await db.refresh(item)
+    return item
+
+
+async def delete_knowledge_base_item(db: AsyncSession, item: models.KnowledgeBaseItem) -> None:
+    await db.delete(item)
+    await db.commit()
