@@ -5,7 +5,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app import crud, models, schemas
 from app.database import get_db
-from app.dependencies import require_role
+from app.dependencies import require_any_role, require_role
 from app.services.ews import OnboardingEWSService
 
 router = APIRouter(prefix="/hr", tags=["HR"])
@@ -86,10 +86,24 @@ async def add_task_to_track_for_hr(
 @router.get("/onboarding-risk", response_model=List[schemas.OnboardingRisk])
 async def get_onboarding_risk_list(
     db: AsyncSession = Depends(get_db),
-    current_user = Depends(require_role("hr")),
+    current_user = Depends(require_any_role("hr", "mentor")),
 ):
     ews_service = OnboardingEWSService(db)
     return await ews_service.list_risks()
+
+
+@router.get("/onboarding-risk/{onboarding_id}", response_model=schemas.OnboardingRiskDetail)
+async def get_onboarding_risk_detail(
+    onboarding_id: int,
+    db: AsyncSession = Depends(get_db),
+    current_user=Depends(require_any_role("hr", "mentor")),
+):
+    _ = current_user
+    ews_service = OnboardingEWSService(db)
+    detail = await ews_service.get_risk_detail(onboarding_id)
+    if not detail:
+        raise HTTPException(status_code=404, detail="Активная адаптация не найдена")
+    return detail
 
 
 @router.post(
@@ -99,8 +113,9 @@ async def get_onboarding_risk_list(
 async def take_risk_action(
     onboarding_id: int,
     action_type: str = Query(..., pattern="^(plan_1on1|send_nudge)$"),
+    comment: str = Query(default="", max_length=1000),
     db: AsyncSession = Depends(get_db),
-    current_user = Depends(require_role("hr")),
+    current_user = Depends(require_any_role("hr", "mentor")),
 ):
     onboarding = await crud.get_onboarding_by_id(db, onboarding_id)
     if not onboarding or onboarding.status != "in_progress":
@@ -120,4 +135,5 @@ async def take_risk_action(
         onboarding_id=onboarding_id,
         action_type=action_type,
         message=message,
+        comment=comment.strip() or None,
     )

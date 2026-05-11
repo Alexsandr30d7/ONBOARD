@@ -7,6 +7,7 @@ from typing import List
 from app import crud, schemas, models
 from app.database import get_db
 from app.dependencies import require_role
+from app.services.ews import EWSWeights, OnboardingEWSService, get_current_ews_weights, set_current_ews_weights
 
 router = APIRouter(prefix="/admin", tags=["Admin"])
 
@@ -155,3 +156,66 @@ async def list_all_onboardings(
     current_user = Depends(require_role("admin"))
 ):
     return await crud.get_all_onboardings(db)
+
+
+@router.get("/ews/weights", response_model=schemas.EWSWeightsPayload)
+async def get_ews_weights(
+    current_user=Depends(require_role("admin")),
+):
+    _ = current_user
+    w = get_current_ews_weights()
+    return schemas.EWSWeightsPayload(
+        overdue_ratio=w.overdue_ratio,
+        pace_drop=w.pace_drop,
+        inactivity=w.inactivity,
+        negative_feedback=w.negative_feedback,
+    )
+
+
+@router.put("/ews/weights", response_model=schemas.EWSWeightsPayload)
+async def update_ews_weights(
+    payload: schemas.EWSWeightsPayload,
+    current_user=Depends(require_role("admin")),
+):
+    _ = current_user
+    total = payload.overdue_ratio + payload.pace_drop + payload.inactivity + payload.negative_feedback
+    if abs(total - 1.0) > 0.001:
+        raise HTTPException(status_code=400, detail="Сумма весов должна быть равна 1.0")
+
+    updated = set_current_ews_weights(
+        EWSWeights(
+            overdue_ratio=payload.overdue_ratio,
+            pace_drop=payload.pace_drop,
+            inactivity=payload.inactivity,
+            negative_feedback=payload.negative_feedback,
+        )
+    )
+    return schemas.EWSWeightsPayload(
+        overdue_ratio=updated.overdue_ratio,
+        pace_drop=updated.pace_drop,
+        inactivity=updated.inactivity,
+        negative_feedback=updated.negative_feedback,
+    )
+
+
+@router.post("/ews/recalculate", response_model=schemas.EWSDistributionPreview)
+async def recalculate_ews(
+    payload: schemas.EWSWeightsPayload | None = None,
+    db: AsyncSession = Depends(get_db),
+    current_user=Depends(require_role("admin")),
+):
+    _ = current_user
+    weights = get_current_ews_weights()
+    if payload:
+        total = payload.overdue_ratio + payload.pace_drop + payload.inactivity + payload.negative_feedback
+        if abs(total - 1.0) > 0.001:
+            raise HTTPException(status_code=400, detail="Сумма весов должна быть равна 1.0")
+        weights = EWSWeights(
+            overdue_ratio=payload.overdue_ratio,
+            pace_drop=payload.pace_drop,
+            inactivity=payload.inactivity,
+            negative_feedback=payload.negative_feedback,
+        )
+
+    service = OnboardingEWSService(db=db, score_calculator=None)
+    return await service.preview_distribution(weights=weights)

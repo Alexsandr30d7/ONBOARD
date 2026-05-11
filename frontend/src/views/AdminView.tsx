@@ -1,6 +1,14 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { apiJson } from "../api/client";
-import type { EmployeeOnboarding, OnboardingTrack, Role, User, UserUpdatePayload } from "../types";
+import type {
+  EWSDistributionPreview,
+  EWSWeightsPayload,
+  EmployeeOnboarding,
+  OnboardingTrack,
+  Role,
+  User,
+  UserUpdatePayload,
+} from "../types";
 
 export default function AdminView({ currentUserId }: { currentUserId: number }) {
   const [users, setUsers] = useState<User[]>([]);
@@ -18,6 +26,14 @@ export default function AdminView({ currentUserId }: { currentUserId: number }) 
   const [editRole, setEditRole] = useState<Role>("hr");
   const [editActive, setEditActive] = useState(true);
   const [editPassword, setEditPassword] = useState("");
+  const [weights, setWeights] = useState<EWSWeightsPayload>({
+    overdue_ratio: 0.35,
+    pace_drop: 0.25,
+    inactivity: 0.2,
+    negative_feedback: 0.2,
+  });
+  const [preview, setPreview] = useState<EWSDistributionPreview | null>(null);
+  const [weightsLoading, setWeightsLoading] = useState(false);
 
   const refresh = useCallback(async () => {
     setError(null);
@@ -27,9 +43,11 @@ export default function AdminView({ currentUserId }: { currentUserId: number }) 
         apiJson<OnboardingTrack[]>("/admin/tracks"),
         apiJson<EmployeeOnboarding[]>("/admin/onboardings"),
       ]);
+      const w = await apiJson<EWSWeightsPayload>("/admin/ews/weights");
       setUsers(u);
       setTracks(t);
       setOnboardings(o);
+      setWeights(w);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Ошибка загрузки");
     }
@@ -38,6 +56,49 @@ export default function AdminView({ currentUserId }: { currentUserId: number }) 
   useEffect(() => {
     void refresh();
   }, [refresh]);
+
+  async function saveWeights() {
+    setOk(null);
+    const total = weights.overdue_ratio + weights.pace_drop + weights.inactivity + weights.negative_feedback;
+    if (Math.abs(total - 1) > 0.001) {
+      setError("Сумма весов должна быть 1.0");
+      return;
+    }
+    setWeightsLoading(true);
+    try {
+      const updated = await apiJson<EWSWeightsPayload>("/admin/ews/weights", {
+        method: "PUT",
+        body: JSON.stringify(weights),
+      });
+      setWeights(updated);
+      setOk("Веса EWS обновлены");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Ошибка сохранения весов");
+    } finally {
+      setWeightsLoading(false);
+    }
+  }
+
+  async function recalculatePreview() {
+    setOk(null);
+    setWeightsLoading(true);
+    try {
+      const p = await apiJson<EWSDistributionPreview>("/admin/ews/recalculate", {
+        method: "POST",
+        body: JSON.stringify(weights),
+      });
+      setPreview(p);
+      setOk("Предпросмотр пересчитан");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Ошибка пересчета");
+    } finally {
+      setWeightsLoading(false);
+    }
+  }
+
+  const weightsTotal = (
+    weights.overdue_ratio + weights.pace_drop + weights.inactivity + weights.negative_feedback
+  ).toFixed(2);
 
   async function createHr(e: React.FormEvent) {
     e.preventDefault();
@@ -166,6 +227,78 @@ export default function AdminView({ currentUserId }: { currentUserId: number }) 
           </button>
         </div>
       ) : null}
+
+      <div className="grid grid-2">
+        <div className="card">
+          <h2>EWS Settings</h2>
+          <div className="form-row">
+            <label>Просрочка ({Math.round(weights.overdue_ratio * 100)}%)</label>
+            <input
+              type="range"
+              min={0}
+              max={1}
+              step={0.01}
+              value={weights.overdue_ratio}
+              onChange={(e) => setWeights((prev) => ({ ...prev, overdue_ratio: Number(e.target.value) }))}
+            />
+          </div>
+          <div className="form-row">
+            <label>Отставание темпа ({Math.round(weights.pace_drop * 100)}%)</label>
+            <input
+              type="range"
+              min={0}
+              max={1}
+              step={0.01}
+              value={weights.pace_drop}
+              onChange={(e) => setWeights((prev) => ({ ...prev, pace_drop: Number(e.target.value) }))}
+            />
+          </div>
+          <div className="form-row">
+            <label>Неактивность ({Math.round(weights.inactivity * 100)}%)</label>
+            <input
+              type="range"
+              min={0}
+              max={1}
+              step={0.01}
+              value={weights.inactivity}
+              onChange={(e) => setWeights((prev) => ({ ...prev, inactivity: Number(e.target.value) }))}
+            />
+          </div>
+          <div className="form-row">
+            <label>Негативный feedback ({Math.round(weights.negative_feedback * 100)}%)</label>
+            <input
+              type="range"
+              min={0}
+              max={1}
+              step={0.01}
+              value={weights.negative_feedback}
+              onChange={(e) => setWeights((prev) => ({ ...prev, negative_feedback: Number(e.target.value) }))}
+            />
+          </div>
+          <p className="muted">Сумма весов: {weightsTotal}</p>
+          <div className="form-actions">
+            <button type="button" className="btn btn-primary btn-small" disabled={weightsLoading} onClick={() => void saveWeights()}>
+              Сохранить веса
+            </button>
+            <button type="button" className="btn btn-ghost btn-small" disabled={weightsLoading} onClick={() => void recalculatePreview()}>
+              Пересчитать риски
+            </button>
+          </div>
+        </div>
+        <div className="card">
+          <h2>Предпросмотр распределения</h2>
+          {preview ? (
+            <ul className="stack" style={{ margin: 0, paddingLeft: "1rem" }}>
+              <li>Low: {preview.low}</li>
+              <li>Medium: {preview.medium}</li>
+              <li>High: {preview.high}</li>
+              <li>Average score: {preview.average_score}</li>
+            </ul>
+          ) : (
+            <p className="muted">Нажми "Пересчитать риски", чтобы увидеть прогноз.</p>
+          )}
+        </div>
+      </div>
 
       <div className="grid grid-2">
         <div className="card">

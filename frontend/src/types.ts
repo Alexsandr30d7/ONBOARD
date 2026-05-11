@@ -82,9 +82,52 @@ export interface OnboardingRisk {
   employee_id: number;
   employee_name: string;
   track_name: string;
+  onboarding_start_date: string;
+  days_in_onboarding: number;
+  planned_progress: number;
+  actual_progress: number;
   risk_score: number;
   risk_level: "low" | "medium" | "high";
   factors: OnboardingRiskFactors;
+}
+
+export interface OverdueTaskInfo {
+  task_id: number;
+  title: string;
+  due_date: string;
+  status: string;
+}
+
+export interface OnboardingRiskDetail {
+  onboarding_id: number;
+  employee_id: number;
+  employee_name: string;
+  track_name: string;
+  status: string;
+  onboarding_start_date: string;
+  days_in_onboarding: number;
+  planned_progress: number;
+  actual_progress: number;
+  risk_score: number;
+  risk_level: "low" | "medium" | "high";
+  factors: OnboardingRiskFactors;
+  overdue_tasks: OverdueTaskInfo[];
+  last_activity_date: string | null;
+  latest_feedback_excerpt: string | null;
+}
+
+export interface EWSWeightsPayload {
+  overdue_ratio: number;
+  pace_drop: number;
+  inactivity: number;
+  negative_feedback: number;
+}
+
+export interface EWSDistributionPreview {
+  low: number;
+  medium: number;
+  high: number;
+  average_score: number;
 }
 
 export interface KnowledgeBaseItem {

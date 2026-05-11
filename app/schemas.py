@@ -173,6 +173,10 @@ class OnboardingRisk(BaseModel):
     employee_id: int
     employee_name: str
     track_name: str
+    onboarding_start_date: date
+    days_in_onboarding: int = Field(..., ge=0)
+    planned_progress: int = Field(..., ge=0, le=100)
+    actual_progress: int = Field(..., ge=0, le=100)
     risk_score: int = Field(..., ge=0, le=100)
     risk_level: str = Field(..., pattern="^(low|medium|high)$")
     factors: OnboardingRiskFactors
@@ -182,6 +186,46 @@ class OnboardingRiskActionResponse(BaseModel):
     onboarding_id: int
     action_type: str = Field(..., pattern="^(plan_1on1|send_nudge)$")
     message: str
+    comment: Optional[str] = None
+
+
+class OverdueTaskInfo(BaseModel):
+    task_id: int
+    title: str
+    due_date: date
+    status: str
+
+
+class OnboardingRiskDetail(BaseModel):
+    onboarding_id: int
+    employee_id: int
+    employee_name: str
+    track_name: str
+    status: str
+    onboarding_start_date: date
+    days_in_onboarding: int = Field(..., ge=0)
+    planned_progress: int = Field(..., ge=0, le=100)
+    actual_progress: int = Field(..., ge=0, le=100)
+    risk_score: int = Field(..., ge=0, le=100)
+    risk_level: str = Field(..., pattern="^(low|medium|high)$")
+    factors: OnboardingRiskFactors
+    overdue_tasks: List[OverdueTaskInfo]
+    last_activity_date: Optional[date] = None
+    latest_feedback_excerpt: Optional[str] = None
+
+
+class EWSWeightsPayload(BaseModel):
+    overdue_ratio: float = Field(..., ge=0, le=1)
+    pace_drop: float = Field(..., ge=0, le=1)
+    inactivity: float = Field(..., ge=0, le=1)
+    negative_feedback: float = Field(..., ge=0, le=1)
+
+
+class EWSDistributionPreview(BaseModel):
+    low: int
+    medium: int
+    high: int
+    average_score: int = Field(..., ge=0, le=100)
 
 
 class KnowledgeBaseItem(BaseModel):

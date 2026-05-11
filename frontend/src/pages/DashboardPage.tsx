@@ -61,14 +61,9 @@ export default function DashboardPage({
 
       {section === "knowledge" ? <KnowledgeBasePage user={user} /> : null}
       {section === "dashboard" && user.role === "admin" ? <AdminView currentUserId={user.user_id} /> : null}
-      {section === "dashboard" && user.role === "hr" ? <HrView /> : null}
+      {section === "dashboard" && user.role === "hr" ? <HrView role="hr" /> : null}
       {section === "dashboard" && user.role === "new_employee" ? <EmployeeView /> : null}
-      {section === "dashboard" && user.role === "mentor" ? (
-        <div className="card">
-          <h2>Ментор</h2>
-          <p className="muted">Отдельный кабинет ментора в API пока не вынесен; используйте админку или документацию.</p>
-        </div>
-      ) : null}
+      {section === "dashboard" && user.role === "mentor" ? <HrView role="mentor" /> : null}
     </div>
   );
 }
