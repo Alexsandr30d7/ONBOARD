@@ -140,3 +140,23 @@ export interface KnowledgeBaseItem {
   created_by: number;
   created_at: string;
 }
+
+export interface MentorContact {
+  employee_id: number | null;
+  mentor_user_id: number;
+  mentor_email: string;
+}
+
+export interface EmployeeContact {
+  employee_id: number;
+  employee_name: string;
+  user_id: number;
+  user_email: string;
+}
+
+export interface ChatMessage {
+  message_id: number;
+  sender_user_id: number;
+  text: string;
+  created_at: string;
+}

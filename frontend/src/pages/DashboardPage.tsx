@@ -61,9 +61,8 @@ export default function DashboardPage({
 
       {section === "knowledge" ? <KnowledgeBasePage user={user} /> : null}
       {section === "dashboard" && user.role === "admin" ? <AdminView currentUserId={user.user_id} /> : null}
-      {section === "dashboard" && user.role === "hr" ? <HrView role="hr" /> : null}
-      {section === "dashboard" && user.role === "new_employee" ? <EmployeeView /> : null}
-      {section === "dashboard" && user.role === "mentor" ? <HrView role="mentor" /> : null}
+      {section === "dashboard" && (user.role === "hr" || user.role === "mentor") ? <HrView user={user} /> : null}
+      {section === "dashboard" && user.role === "new_employee" ? <EmployeeView user={user} /> : null}
     </div>
   );
 }

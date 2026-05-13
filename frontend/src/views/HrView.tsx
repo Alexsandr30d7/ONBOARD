@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { apiJson } from "../api/client";
 import type {
   Employee,
+  MentorContact,
   OnboardingRisk,
   OnboardingRiskDetail,
   OnboardingTrack,
@@ -9,6 +10,7 @@ import type {
   Task,
   User,
 } from "../types";
+import ChatPanel from "../components/ChatPanel";
 
 function riskClass(level: OnboardingRisk["risk_level"]) {
   if (level === "high") return "risk-high";
@@ -24,11 +26,12 @@ function riskReason(r: OnboardingRisk) {
   return "Риск стабилен, требуется мониторинг";
 }
 
-export default function HrView({ role = "hr" }: { role?: Role }) {
-  const isMentor = role === "mentor";
+export default function HrView({ user }: { user: User }) {
+  const isMentor = user.role === "mentor";
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [tracks, setTracks] = useState<OnboardingTrack[]>([]);
   const [risks, setRisks] = useState<OnboardingRisk[]>([]);
+  const [mentors, setMentors] = useState<MentorContact[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [ok, setOk] = useState<string | null>(null);
 
@@ -52,6 +55,9 @@ export default function HrView({ role = "hr" }: { role?: Role }) {
   const [taskType, setTaskType] = useState("document");
   const [taskOrder, setTaskOrder] = useState(1);
   const [taskDur, setTaskDur] = useState(3);
+  const [mentorEmployeeId, setMentorEmployeeId] = useState<number | "">("");
+  const [mentorUserId, setMentorUserId] = useState<number | "">("");
+  const [assignLoading, setAssignLoading] = useState(false);
 
   const [riskLevelFilter, setRiskLevelFilter] = useState<"all" | "high" | "medium" | "low">("all");
   const [trackFilter, setTrackFilter] = useState("all");
@@ -70,14 +76,16 @@ export default function HrView({ role = "hr" }: { role?: Role }) {
         const r = await riskPromise;
         setRisks(r);
       } else {
-        const [e, t, r] = await Promise.all([
+        const [e, t, r, m] = await Promise.all([
           apiJson<Employee[]>("/hr/employees"),
           apiJson<OnboardingTrack[]>("/hr/tracks"),
           riskPromise,
+          apiJson<MentorContact[]>("/chat/mentors"),
         ]);
         setEmployees(e);
         setTracks(t);
         setRisks(r);
+        setMentors(m);
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Ошибка загрузки");
@@ -91,6 +99,12 @@ export default function HrView({ role = "hr" }: { role?: Role }) {
   useEffect(() => {
     if (employees.length && empId === "") setEmpId(employees[0].employee_id);
   }, [employees, empId]);
+  useEffect(() => {
+    if (employees.length && mentorEmployeeId === "") setMentorEmployeeId(employees[0].employee_id);
+  }, [employees, mentorEmployeeId]);
+  useEffect(() => {
+    if (mentors.length && mentorUserId === "") setMentorUserId(mentors[0].mentor_user_id);
+  }, [mentors, mentorUserId]);
   useEffect(() => {
     if (tracks.length && trackId === "") setTrackId(tracks[0].track_id);
   }, [tracks, trackId]);
@@ -244,6 +258,25 @@ export default function HrView({ role = "hr" }: { role?: Role }) {
     }
   }
 
+  async function assignMentor(ev: React.FormEvent) {
+    ev.preventDefault();
+    if (mentorEmployeeId === "" || mentorUserId === "") return;
+    setOk(null);
+    setError(null);
+    setAssignLoading(true);
+    try {
+      await apiJson<void>("/chat/assignments", {
+        method: "PUT",
+        body: JSON.stringify({ employee_id: mentorEmployeeId, mentor_user_id: mentorUserId }),
+      });
+      setOk("Ментор назначен (или обновлен) для сотрудника");
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Ошибка назначения ментора");
+    } finally {
+      setAssignLoading(false);
+    }
+  }
+
   const uniqueTrackNames = Array.from(new Set(risks.map((r) => r.track_name)));
 
   return (
@@ -362,6 +395,13 @@ export default function HrView({ role = "hr" }: { role?: Role }) {
         {filteredRisks.length === 0 ? <p className="muted">Нет записей для выбранных фильтров.</p> : null}
       </div>
 
+      {isMentor ? (
+        <div className="card">
+          <h2>Чаты с сотрудниками</h2>
+          <ChatPanel user={user} />
+        </div>
+      ) : null}
+
       {selectedRiskId ? (
         <div className="modal-backdrop" role="presentation" onClick={() => { setSelectedRiskId(null); setSelectedRiskDetail(null); }}>
           <div className="modal-card" role="dialog" aria-modal="true" onClick={(e) => e.stopPropagation()}>
@@ -471,6 +511,46 @@ export default function HrView({ role = "hr" }: { role?: Role }) {
 
       {!isMentor ? (
         <>
+          <div className="card">
+            <h2>Назначение ментора</h2>
+            <form onSubmit={assignMentor}>
+              <div className="grid grid-2">
+                <div className="form-row">
+                  <label>Сотрудник</label>
+                  <select
+                    value={mentorEmployeeId === "" ? "" : String(mentorEmployeeId)}
+                    onChange={(e) => setMentorEmployeeId(e.target.value ? Number(e.target.value) : "")}
+                    disabled={!employees.length}
+                  >
+                    {employees.map((x) => (
+                      <option key={x.employee_id} value={x.employee_id}>
+                        #{x.employee_id} {x.first_name} {x.last_name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div className="form-row">
+                  <label>Ментор</label>
+                  <select
+                    value={mentorUserId === "" ? "" : String(mentorUserId)}
+                    onChange={(e) => setMentorUserId(e.target.value ? Number(e.target.value) : "")}
+                    disabled={!mentors.length}
+                  >
+                    {mentors.map((m) => (
+                      <option key={m.mentor_user_id} value={m.mentor_user_id}>
+                        #{m.mentor_user_id} {m.mentor_email}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+              <button type="submit" className="btn btn-primary" disabled={!employees.length || !mentors.length || assignLoading}>
+                Назначить
+              </button>
+              {!mentors.length ? <p className="muted">Нет пользователей с ролью mentor. Создай их в админке.</p> : null}
+            </form>
+          </div>
+
           <div className="grid grid-2">
             <div className="card">
               <h2>Новый трек адаптации</h2>

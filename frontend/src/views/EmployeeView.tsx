@@ -1,8 +1,10 @@
 import { useCallback, useEffect, useState } from "react";
 import { apiJson, apiPost } from "../api/client";
 import type { EmployeeOnboarding, EmployeeOnboardingTask } from "../types";
+import ChatPanel from "../components/ChatPanel";
+import type { User } from "../types";
 
-export default function EmployeeView() {
+export default function EmployeeView({ user }: { user: User }) {
   const [onb, setOnb] = useState<EmployeeOnboarding | null>(null);
   const [tasks, setTasks] = useState<EmployeeOnboardingTask[]>([]);
   const [error, setError] = useState<string | null>(null);
@@ -168,6 +170,11 @@ export default function EmployeeView() {
             Отправить
           </button>
         </form>
+      </div>
+
+      <div className="card">
+        <h2>Чат с ментором</h2>
+        <ChatPanel user={user} />
       </div>
     </div>
   );

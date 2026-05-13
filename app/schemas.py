@@ -240,3 +240,36 @@ class KnowledgeBaseItem(BaseModel):
 
     class Config:
         from_attributes = True
+
+
+class MentorContact(BaseModel):
+    employee_id: Optional[int] = None
+    mentor_user_id: int
+    mentor_email: EmailStr
+
+
+class EmployeeContact(BaseModel):
+    employee_id: int
+    employee_name: str
+    user_id: int
+    user_email: EmailStr
+
+
+class ChatMessage(BaseModel):
+    message_id: int
+    sender_user_id: int
+    text: str
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+class ChatSendPayload(BaseModel):
+    employee_id: int
+    text: str
+
+
+class MentorAssignmentUpsert(BaseModel):
+    employee_id: int
+    mentor_user_id: int

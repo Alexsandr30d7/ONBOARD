@@ -133,3 +133,39 @@ class KnowledgeBaseItem(Base):
     created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
 
     creator = relationship("User")
+
+
+class MentorAssignment(Base):
+    __tablename__ = "mentor_assignments"
+
+    assignment_id = Column(Integer, primary_key=True, index=True)
+    employee_id = Column(Integer, ForeignKey("employees.employee_id", ondelete="CASCADE"), nullable=False, index=True)
+    mentor_user_id = Column(Integer, ForeignKey("users.user_id", ondelete="CASCADE"), nullable=False, index=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+
+    employee = relationship("Employee")
+    mentor = relationship("User")
+    __table_args__ = (
+        UniqueConstraint("employee_id", name="uq_mentor_assignment_employee"),
+        Index("idx_mentor_assignment_mentor", "mentor_user_id"),
+    )
+
+
+class ChatMessage(Base):
+    __tablename__ = "chat_messages"
+
+    message_id = Column(Integer, primary_key=True, index=True)
+    employee_id = Column(Integer, ForeignKey("employees.employee_id", ondelete="CASCADE"), nullable=False, index=True)
+    mentor_user_id = Column(Integer, ForeignKey("users.user_id", ondelete="CASCADE"), nullable=False, index=True)
+    sender_user_id = Column(Integer, ForeignKey("users.user_id", ondelete="CASCADE"), nullable=False, index=True)
+    text = Column(Text, nullable=False)
+    created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    read_at = Column(DateTime(timezone=True))
+
+    employee = relationship("Employee")
+    mentor = relationship("User", foreign_keys=[mentor_user_id])
+    sender = relationship("User", foreign_keys=[sender_user_id])
+    __table_args__ = (
+        Index("idx_chat_employee_created", "employee_id", "created_at"),
+        Index("idx_chat_mentor_created", "mentor_user_id", "created_at"),
+    )

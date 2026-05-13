@@ -291,6 +291,83 @@ async def create_knowledge_base_item(
     return db_item
 
 
+# === Mentor assignments & Chat ===
+async def list_mentor_users(db: AsyncSession) -> List[models.User]:
+    result = await db.execute(select(models.User).where(models.User.role == "mentor"))
+    return result.scalars().all()
+
+
+async def upsert_mentor_assignment(db: AsyncSession, employee_id: int, mentor_user_id: int) -> models.MentorAssignment:
+    result = await db.execute(select(models.MentorAssignment).where(models.MentorAssignment.employee_id == employee_id))
+    existing = result.scalars().first()
+    if existing:
+        existing.mentor_user_id = mentor_user_id
+        await db.commit()
+        await db.refresh(existing)
+        return existing
+    assignment = models.MentorAssignment(employee_id=employee_id, mentor_user_id=mentor_user_id)
+    db.add(assignment)
+    await db.commit()
+    await db.refresh(assignment)
+    return assignment
+
+
+async def get_mentor_assignment_by_employee_id(
+    db: AsyncSession, employee_id: int
+) -> Optional[models.MentorAssignment]:
+    result = await db.execute(select(models.MentorAssignment).where(models.MentorAssignment.employee_id == employee_id))
+    return result.scalars().first()
+
+
+async def list_assigned_employees_for_mentor(
+    db: AsyncSession, mentor_user_id: int
+) -> List[models.Employee]:
+    result = await db.execute(select(models.MentorAssignment).where(models.MentorAssignment.mentor_user_id == mentor_user_id))
+    assigns = result.scalars().all()
+    if not assigns:
+        return []
+    employee_ids = [a.employee_id for a in assigns]
+    emp_result = await db.execute(select(models.Employee).where(models.Employee.employee_id.in_(employee_ids)))
+    return emp_result.scalars().all()
+
+
+async def list_chat_messages(
+    db: AsyncSession,
+    employee_id: int,
+    mentor_user_id: int,
+    after_id: Optional[int] = None,
+    limit: int = 200,
+) -> List[models.ChatMessage]:
+    stmt = select(models.ChatMessage).where(
+        models.ChatMessage.employee_id == employee_id,
+        models.ChatMessage.mentor_user_id == mentor_user_id,
+    )
+    if after_id:
+        stmt = stmt.where(models.ChatMessage.message_id > after_id)
+    stmt = stmt.order_by(models.ChatMessage.message_id.asc()).limit(limit)
+    result = await db.execute(stmt)
+    return result.scalars().all()
+
+
+async def create_chat_message(
+    db: AsyncSession,
+    employee_id: int,
+    mentor_user_id: int,
+    sender_user_id: int,
+    text: str,
+) -> models.ChatMessage:
+    msg = models.ChatMessage(
+        employee_id=employee_id,
+        mentor_user_id=mentor_user_id,
+        sender_user_id=sender_user_id,
+        text=text,
+    )
+    db.add(msg)
+    await db.commit()
+    await db.refresh(msg)
+    return msg
+
+
 async def update_knowledge_base_item(
     db: AsyncSession,
     item: models.KnowledgeBaseItem,
