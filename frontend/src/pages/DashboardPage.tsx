@@ -1,18 +1,22 @@
-import { useNavigate } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import { logout } from "../api/client";
 import type { User } from "../types";
 import AdminView from "../views/AdminView";
 import HrView from "../views/HrView";
 import EmployeeView from "../views/EmployeeView";
+import KnowledgeBasePage from "./KnowledgeBasePage";
 
 export default function DashboardPage({
   user,
   onUserChange,
+  section = "dashboard",
 }: {
   user: User;
   onUserChange: (u: User | null) => void;
+  section?: "dashboard" | "knowledge";
 }) {
   const nav = useNavigate();
+  const location = useLocation();
 
   async function handleLogout() {
     await logout();
@@ -32,6 +36,17 @@ export default function DashboardPage({
       <header className="topbar">
         <div>
           <div className="brand">Онбординг — демо</div>
+          <div style={{ display: "flex", gap: "0.5rem", marginTop: "0.45rem", flexWrap: "wrap" }}>
+            <Link to="/" className={`btn btn-ghost btn-small ${location.pathname === "/" ? "menu-active" : ""}`}>
+              Дашборд
+            </Link>
+            <Link
+              to="/knowledge-base"
+              className={`btn btn-ghost btn-small ${location.pathname === "/knowledge-base" ? "menu-active" : ""}`}
+            >
+              База знаний
+            </Link>
+          </div>
           <div className="muted" style={{ fontSize: "0.9rem" }}>
             {user.email}
           </div>
@@ -44,15 +59,10 @@ export default function DashboardPage({
         </div>
       </header>
 
-      {user.role === "admin" ? <AdminView currentUserId={user.user_id} /> : null}
-      {user.role === "hr" ? <HrView /> : null}
-      {user.role === "new_employee" ? <EmployeeView /> : null}
-      {user.role === "mentor" ? (
-        <div className="card">
-          <h2>Ментор</h2>
-          <p className="muted">Отдельный кабинет ментора в API пока не вынесен; используйте админку или документацию.</p>
-        </div>
-      ) : null}
+      {section === "knowledge" ? <KnowledgeBasePage user={user} /> : null}
+      {section === "dashboard" && user.role === "admin" ? <AdminView currentUserId={user.user_id} /> : null}
+      {section === "dashboard" && (user.role === "hr" || user.role === "mentor") ? <HrView user={user} /> : null}
+      {section === "dashboard" && user.role === "new_employee" ? <EmployeeView user={user} /> : null}
     </div>
   );
 }

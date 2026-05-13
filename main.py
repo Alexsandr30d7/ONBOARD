@@ -4,7 +4,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.exceptions import RequestValidationError
 from pydantic import ValidationError
 
-from app.routers import auth, admin, hr, onboarding
+from app.routers import auth, admin, hr, onboarding, knowledge_base, chat
 from app.database import Base, engine 
 from app.core.config import settings
 
@@ -45,6 +45,8 @@ app.include_router(auth.router, prefix=f"{api_prefix}/auth")
 app.include_router(admin.router, prefix=f"{api_prefix}")
 app.include_router(onboarding.router, prefix=f"{api_prefix}/onboarding")
 app.include_router(hr.router, prefix=f"{api_prefix}")
+app.include_router(knowledge_base.router, prefix=f"{api_prefix}")
+app.include_router(chat.router, prefix=f"{api_prefix}")
 
 @app.get("/", tags=["Root"])
 async def read_root():

@@ -1,6 +1,14 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { apiJson } from "../api/client";
-import type { EmployeeOnboarding, OnboardingTrack, User } from "../types";
+import type {
+  EWSDistributionPreview,
+  EWSWeightsPayload,
+  EmployeeOnboarding,
+  OnboardingTrack,
+  Role,
+  User,
+  UserUpdatePayload,
+} from "../types";
 
 export default function AdminView({ currentUserId }: { currentUserId: number }) {
   const [users, setUsers] = useState<User[]>([]);
@@ -13,6 +21,19 @@ export default function AdminView({ currentUserId }: { currentUserId: number }) 
   const [hrPassword, setHrPassword] = useState("");
   const [mentorEmail, setMentorEmail] = useState("");
   const [mentorPassword, setMentorPassword] = useState("");
+  const [editingUserId, setEditingUserId] = useState<number | null>(null);
+  const [editEmail, setEditEmail] = useState("");
+  const [editRole, setEditRole] = useState<Role>("hr");
+  const [editActive, setEditActive] = useState(true);
+  const [editPassword, setEditPassword] = useState("");
+  const [weights, setWeights] = useState<EWSWeightsPayload>({
+    overdue_ratio: 0.35,
+    pace_drop: 0.25,
+    inactivity: 0.2,
+    negative_feedback: 0.2,
+  });
+  const [preview, setPreview] = useState<EWSDistributionPreview | null>(null);
+  const [weightsLoading, setWeightsLoading] = useState(false);
 
   const refresh = useCallback(async () => {
     setError(null);
@@ -22,9 +43,11 @@ export default function AdminView({ currentUserId }: { currentUserId: number }) 
         apiJson<OnboardingTrack[]>("/admin/tracks"),
         apiJson<EmployeeOnboarding[]>("/admin/onboardings"),
       ]);
+      const w = await apiJson<EWSWeightsPayload>("/admin/ews/weights");
       setUsers(u);
       setTracks(t);
       setOnboardings(o);
+      setWeights(w);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Ошибка загрузки");
     }
@@ -33,6 +56,49 @@ export default function AdminView({ currentUserId }: { currentUserId: number }) 
   useEffect(() => {
     void refresh();
   }, [refresh]);
+
+  async function saveWeights() {
+    setOk(null);
+    const total = weights.overdue_ratio + weights.pace_drop + weights.inactivity + weights.negative_feedback;
+    if (Math.abs(total - 1) > 0.001) {
+      setError("Сумма весов должна быть 1.0");
+      return;
+    }
+    setWeightsLoading(true);
+    try {
+      const updated = await apiJson<EWSWeightsPayload>("/admin/ews/weights", {
+        method: "PUT",
+        body: JSON.stringify(weights),
+      });
+      setWeights(updated);
+      setOk("Веса EWS обновлены");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Ошибка сохранения весов");
+    } finally {
+      setWeightsLoading(false);
+    }
+  }
+
+  async function recalculatePreview() {
+    setOk(null);
+    setWeightsLoading(true);
+    try {
+      const p = await apiJson<EWSDistributionPreview>("/admin/ews/recalculate", {
+        method: "POST",
+        body: JSON.stringify(weights),
+      });
+      setPreview(p);
+      setOk("Предпросмотр пересчитан");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Ошибка пересчета");
+    } finally {
+      setWeightsLoading(false);
+    }
+  }
+
+  const weightsTotal = (
+    weights.overdue_ratio + weights.pace_drop + weights.inactivity + weights.negative_feedback
+  ).toFixed(2);
 
   async function createHr(e: React.FormEvent) {
     e.preventDefault();
@@ -81,6 +147,68 @@ export default function AdminView({ currentUserId }: { currentUserId: number }) 
     }
   }
 
+  function openEditUserForm(u: User) {
+    setEditingUserId(u.user_id);
+    setEditEmail(u.email);
+    setEditRole(u.role);
+    setEditActive(u.is_active);
+    setEditPassword("");
+    setError(null);
+    setOk(null);
+  }
+
+  function cancelEditUserForm() {
+    setEditingUserId(null);
+    setEditPassword("");
+  }
+
+  async function saveUserChanges(userId: number) {
+    setOk(null);
+    try {
+      const payload: UserUpdatePayload = {
+        email: editEmail,
+        role: editRole,
+        is_active: editActive,
+      };
+      if (editPassword.trim()) payload.password = editPassword;
+
+      await apiJson<User>(`/admin/users/${userId}`, {
+        method: "PUT",
+        body: JSON.stringify(payload),
+      });
+      setOk("Данные пользователя обновлены");
+      setEditingUserId(null);
+      setEditPassword("");
+      await refresh();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Ошибка");
+    }
+  }
+
+  const editingUser = useMemo(
+    () => users.find((u) => u.user_id === editingUserId) ?? null,
+    [users, editingUserId]
+  );
+
+  useEffect(() => {
+    if (!editingUser) return;
+
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        cancelEditUserForm();
+      }
+    };
+
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    window.addEventListener("keydown", onKeyDown);
+
+    return () => {
+      window.removeEventListener("keydown", onKeyDown);
+      document.body.style.overflow = previousOverflow;
+    };
+  }, [editingUser]);
+
   return (
     <div className="grid">
       {error ? (
@@ -99,6 +227,78 @@ export default function AdminView({ currentUserId }: { currentUserId: number }) 
           </button>
         </div>
       ) : null}
+
+      <div className="grid grid-2">
+        <div className="card">
+          <h2>EWS Settings</h2>
+          <div className="form-row">
+            <label>Просрочка ({Math.round(weights.overdue_ratio * 100)}%)</label>
+            <input
+              type="range"
+              min={0}
+              max={1}
+              step={0.01}
+              value={weights.overdue_ratio}
+              onChange={(e) => setWeights((prev) => ({ ...prev, overdue_ratio: Number(e.target.value) }))}
+            />
+          </div>
+          <div className="form-row">
+            <label>Отставание темпа ({Math.round(weights.pace_drop * 100)}%)</label>
+            <input
+              type="range"
+              min={0}
+              max={1}
+              step={0.01}
+              value={weights.pace_drop}
+              onChange={(e) => setWeights((prev) => ({ ...prev, pace_drop: Number(e.target.value) }))}
+            />
+          </div>
+          <div className="form-row">
+            <label>Неактивность ({Math.round(weights.inactivity * 100)}%)</label>
+            <input
+              type="range"
+              min={0}
+              max={1}
+              step={0.01}
+              value={weights.inactivity}
+              onChange={(e) => setWeights((prev) => ({ ...prev, inactivity: Number(e.target.value) }))}
+            />
+          </div>
+          <div className="form-row">
+            <label>Негативный feedback ({Math.round(weights.negative_feedback * 100)}%)</label>
+            <input
+              type="range"
+              min={0}
+              max={1}
+              step={0.01}
+              value={weights.negative_feedback}
+              onChange={(e) => setWeights((prev) => ({ ...prev, negative_feedback: Number(e.target.value) }))}
+            />
+          </div>
+          <p className="muted">Сумма весов: {weightsTotal}</p>
+          <div className="form-actions">
+            <button type="button" className="btn btn-primary btn-small" disabled={weightsLoading} onClick={() => void saveWeights()}>
+              Сохранить веса
+            </button>
+            <button type="button" className="btn btn-ghost btn-small" disabled={weightsLoading} onClick={() => void recalculatePreview()}>
+              Пересчитать риски
+            </button>
+          </div>
+        </div>
+        <div className="card">
+          <h2>Предпросмотр распределения</h2>
+          {preview ? (
+            <ul className="stack" style={{ margin: 0, paddingLeft: "1rem" }}>
+              <li>Low: {preview.low}</li>
+              <li>Medium: {preview.medium}</li>
+              <li>High: {preview.high}</li>
+              <li>Average score: {preview.average_score}</li>
+            </ul>
+          ) : (
+            <p className="muted">Нажми "Пересчитать риски", чтобы увидеть прогноз.</p>
+          )}
+        </div>
+      </div>
 
       <div className="grid grid-2">
         <div className="card">
@@ -145,7 +345,7 @@ export default function AdminView({ currentUserId }: { currentUserId: number }) 
                 <th>Email</th>
                 <th>Роль</th>
                 <th>Активен</th>
-                <th />
+                <th>Действия</th>
               </tr>
             </thead>
             <tbody>
@@ -155,7 +355,11 @@ export default function AdminView({ currentUserId }: { currentUserId: number }) 
                   <td>{u.email}</td>
                   <td>{u.role}</td>
                   <td>{u.is_active ? "да" : "нет"}</td>
-                  <td>
+                  <td style={{ whiteSpace: "nowrap" }}>
+                    <button type="button" className="btn btn-ghost btn-small" onClick={() => openEditUserForm(u)}>
+                      Редактировать
+                    </button>
+                    {" "}
                     {u.role !== "admin" && u.user_id !== currentUserId ? (
                       u.is_active ? (
                         <button type="button" className="btn btn-danger btn-small" onClick={() => void toggleUser(u, false)}>
@@ -166,9 +370,7 @@ export default function AdminView({ currentUserId }: { currentUserId: number }) 
                           Активировать
                         </button>
                       )
-                    ) : (
-                      <span className="muted">—</span>
-                    )}
+                    ) : null}
                   </td>
                 </tr>
               ))}
@@ -176,6 +378,52 @@ export default function AdminView({ currentUserId }: { currentUserId: number }) 
           </table>
         </div>
       </div>
+
+      {editingUser ? (
+        <div className="modal-backdrop" role="presentation" onClick={cancelEditUserForm}>
+          <div className="modal-card" role="dialog" aria-modal="true" onClick={(e) => e.stopPropagation()}>
+            <h3 style={{ marginTop: 0, marginBottom: "0.8rem" }}>Редактирование пользователя #{editingUser.user_id}</h3>
+            <div className="grid grid-2">
+              <div className="form-row">
+                <label>Email</label>
+                <input type="email" value={editEmail} onChange={(e) => setEditEmail(e.target.value)} />
+              </div>
+              <div className="form-row">
+                <label>Роль</label>
+                <select value={editRole} onChange={(e) => setEditRole(e.target.value as Role)}>
+                  <option value="admin">admin</option>
+                  <option value="hr">hr</option>
+                  <option value="mentor">mentor</option>
+                  <option value="new_employee">new_employee</option>
+                </select>
+              </div>
+              <div className="form-row">
+                <label>Новый пароль (необязательно)</label>
+                <input
+                  type="password"
+                  value={editPassword}
+                  onChange={(e) => setEditPassword(e.target.value)}
+                  placeholder="Оставьте пустым, чтобы не менять"
+                />
+              </div>
+              <div className="form-row">
+                <label style={{ display: "inline-flex", alignItems: "center", gap: "0.5rem", marginTop: "1.8rem" }}>
+                  <input type="checkbox" checked={editActive} onChange={(e) => setEditActive(e.target.checked)} />
+                  <span>Активен</span>
+                </label>
+              </div>
+            </div>
+            <div className="form-actions">
+              <button type="button" className="btn btn-primary btn-small" onClick={() => void saveUserChanges(editingUser.user_id)}>
+                Сохранить
+              </button>
+              <button type="button" className="btn btn-ghost btn-small" onClick={cancelEditUserForm}>
+                Отмена
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
 
       <div className="grid grid-2">
         <div className="card">

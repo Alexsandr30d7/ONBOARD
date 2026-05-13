@@ -27,7 +27,11 @@ export default function App() {
       <Route path="/login" element={user ? <Navigate to="/" replace /> : <LoginPage onLoggedIn={setUser} />} />
       <Route
         path="/"
-        element={user ? <DashboardPage user={user} onUserChange={setUser} /> : <Navigate to="/login" replace />}
+        element={user ? <DashboardPage user={user} onUserChange={setUser} section="dashboard" /> : <Navigate to="/login" replace />}
+      />
+      <Route
+        path="/knowledge-base"
+        element={user ? <DashboardPage user={user} onUserChange={setUser} section="knowledge" /> : <Navigate to="/login" replace />}
       />
       <Route path="*" element={<Navigate to={user ? "/" : "/login"} replace />} />
     </Routes>
